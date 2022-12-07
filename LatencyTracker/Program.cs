@@ -7,13 +7,9 @@ namespace R {
             string d = "";
             Console.WriteLine("What domain would you like to ping?");
             Thread.Sleep(1000);
-#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
             string c = Console.ReadLine();
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
             if (c != "") {
-#pragma warning disable CS8602 // Dereference of a possibly null reference.
                 d = c;
-#pragma warning restore CS8602 // Dereference of a possibly null reference.
             } else if (c == "") {
                 d = "google.com";
             };
@@ -21,9 +17,7 @@ namespace R {
             int y = 100;
             Console.WriteLine("How many times would you like to ping " + d + "? (5-65535) Higher values may take longer.");
             Thread.Sleep(1000);
-#pragma warning disable CS8600 // Converting null literal or possible null value to non-nullable type.
             string z = Console.ReadLine();
-#pragma warning restore CS8600 // Converting null literal or possible null value to non-nullable type.
             if (z != "") {
                 if (Int32.TryParse(z, out y) != false) {
                     if (Int32.Parse(z) > 65535 | Int32.Parse(z) < 2) {
@@ -118,7 +112,7 @@ namespace R {
                 Main();
             } else if (u == ConsoleKey.D2) {
                 await File.WriteAllLinesAsync(Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/Results.txt", o);
-                Console.WriteLine("Results saved to /Documents/Results.txt");
+                Console.WriteLine("Results saved to %Documents%/Results.txt");
                 Console.ReadLine();
                 Console.Clear();
                 Main();
