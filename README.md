@@ -1,3 +1,5 @@
+![Build](https://github.com/arlojay-studios/LatencyTracker/blob/master/.github/workflows/dotnet.yml)
+
 # LatencyTracker
 LatencyTracker is a command line tool to help developers find the latency of a given website, allowing for detailed latency logging of any server.
 
