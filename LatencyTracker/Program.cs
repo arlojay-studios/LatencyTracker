@@ -214,10 +214,7 @@ namespace latencytracker {
                     Console.Clear();
                     await Main();
                 }
-
-
                 Console.ReadLine();
-
                 Console.Clear();
                 await Main();
             } else if (keyPressed == ConsoleKey.D3) {
