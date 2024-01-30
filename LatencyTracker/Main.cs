@@ -1,30 +1,22 @@
 ﻿using System.Net.NetworkInformation;
+using System.Threading.Tasks;
 using System.Text.Json;
+using lcExceptions;
+using lcSettings;
+using System.Security.Cryptography.X509Certificates;
 
+namespace LatencyTracker {
 
-namespace latencytracker {
-    public class Settings {
-        public string? PreviousSaveSettings { get; set; }
-        public short PingAutoAmount { get; set; }
-    }
-    public class ErrorHandler {
-        public static async Task InvalidAdress() {
-            Console.Clear();
-            Console.WriteLine("Invalid Adress - Press any key to retry");
-            Console.ReadLine();
-            Console.Clear();
-            await Program.Main();
-        }
-    }
     public class Program {
+
         private static readonly string workingFolder = Environment.GetFolderPath(Environment.SpecialFolder.MyDocuments) + "/SI/LatencyTracker";
 
         public static async Task Main() {
             var settings = new Settings();
             short? PingAutoAmount;
-            string? PreviousSaveSettings = "0";
-            string? defaultOption1 = "";
-            string? defaultOption2 = "";
+            string PreviousSaveSettings = "0";
+            string defaultOption1 = "0";
+            string defaultOption2 = "0";
             Ping ping = new();
             List<Settings> data = new() {
                 new Settings() { PreviousSaveSettings = "0", PingAutoAmount = 100 }
@@ -72,9 +64,9 @@ namespace latencytracker {
                     // 10000ms max trip time
                     domain = userInputDomain;
                 } catch (PingException) {
-                    await ErrorHandler.InvalidAdress();
+                    await UserInputErrors.InvalidAddress();
                 } catch (ArgumentNullException) {
-                    await ErrorHandler.InvalidAdress();
+                    await UserInputErrors.InvalidAddress();
                 }
             } else {
                 domain = "google.com";
@@ -104,26 +96,28 @@ namespace latencytracker {
 
             Console.WriteLine("Starting...");
             int pingCounter = 0;
-            long[] results = new long[1];
+            long[] results = new long[pingAmount];
+            string[] timestamps = new string[pingAmount];
 
             while (pingCounter < pingAmount) {
                 pingCounter++;
-                Console.WriteLine("Pinging [" + pingCounter + "/" + pingAmount + "]");
+                timestamps[^1] = DateTime.Now.ToString();
+                Console.WriteLine($"Pinging [{pingCounter} / {pingAmount}]");
                 PingReply reply = ping.Send(domain, 10000);
                 Thread.Sleep(100);
                 Array.Resize(ref results, results.Length + 1);
-                Console.WriteLine("Processing [" + pingCounter + "/" + pingAmount + "]");
+                Console.WriteLine($"Processing [{pingCounter} / {pingAmount}]");
 
 
                 results[^1] = reply.RoundtripTime;
                 if (results.Length == pingAmount) {
                     Console.Clear();
-                    await ProcessResults(results, domain, defaultOption1, defaultOption2);
+                    await ProcessResults(results, timestamps, domain, defaultOption1, defaultOption2);
                     return;
                 };
             };
         }
-        public static async Task ProcessResults(long[] results, string domain, string? defaultOption1, string? defaultOption2) {
+        public static async Task ProcessResults(long[] results, string[] timestamps, string domain, string? defaultOption1, string? defaultOption2) {
             long[] filteredResults = results.Distinct().ToArray();
             long resultsMax = results.Max();
             int counter = 0;
@@ -177,14 +171,13 @@ namespace latencytracker {
             output[2] = "MAX: " + results.Max().ToString() + "ms";
             output[3] = "MIN: " + results.Min().ToString() + "ms";
             var keyPressed = Console.ReadKey().Key;
+            Console.Clear();
             if (keyPressed == ConsoleKey.D1) {
-                Console.Clear();
                 await Main();
             } else if (keyPressed == ConsoleKey.D2) {
-                Console.Clear();
                 Console.WriteLine("Export Type");
                 Console.WriteLine($"1: Simple (DOMAIN, AVG, MAX, MIN) {defaultOption1}");
-                Console.WriteLine("2: Advanced (TIMESTAMP, DOMAIN, PINGCOUNT, AVG, MAX, MIN");
+                Console.WriteLine("2: Advanced (TIMESTAMP, DOMAIN, PINGCOUNT, AVG, MAX, MIN)");
                 Console.WriteLine($"3: Custom {defaultOption2}");
                 keyPressed = Console.ReadKey().Key;
                 if (keyPressed == ConsoleKey.D1) {
@@ -204,7 +197,7 @@ namespace latencytracker {
                     output2[5] = "MIN: " + results.Min().ToString() + "ms";
                     outputArrayStart = 6;
                     foreach (var value in results) {
-                        output2[outputArrayStart] = outputArrayStart - 6 + " " + value.ToString() + "ms";
+                        output2[outputArrayStart] = $"{outputArrayStart - 6} ${timestamps[outputArrayStart - 6]} ${value}ms";
                         outputArrayStart++;
                     }
                     await File.WriteAllLinesAsync(workingFolder + "/Results.txt", output2);
@@ -213,6 +206,74 @@ namespace latencytracker {
                     Console.ReadLine();
                     Console.Clear();
                     await Main();
+                } else if (keyPressed == ConsoleKey.D3) {
+                    Console.WriteLine("Define output table order or press enter for default");
+                    Console.WriteLine("Variables: TIME (T), DOMAIN (D), COUNT (C), AVG (A), MAX (H), MIN (L)");
+                    string? input = Console.ReadLine();
+                    Console.Clear();
+                    Console.Write("Processing");
+                    if (input != null) {
+                        string[] output3 = new string[results.Length];
+                        foreach (char c in input) {
+                            input = input.Remove(0, 1);
+                            var currentWritePostion = 0;
+                            if (!input.Contains(c)) {
+                                long[] visibleToWriteHead = Array.Empty<long>();
+                                results.CopyTo(visibleToWriteHead, 0);
+                                Array.Resize(ref visibleToWriteHead, currentWritePostion);
+                                switch (c) {
+                                    case 'T':
+                                        foreach (string line in output3) {
+                                            output3[currentWritePostion] = $"{line}{timestamps[currentWritePostion]} ";
+                                            currentWritePostion++;
+                                        }
+                                        currentWritePostion = 0;
+                                        break;
+                                    case 'D':
+                                        foreach (string line in output3) {
+                                            output3[currentWritePostion] = $"{line}{domain} ";
+                                            currentWritePostion++;
+                                        }
+                                        currentWritePostion = 0;
+                                        break;
+                                    case 'C':
+                                        foreach (string line in output3) {
+                                            output3[currentWritePostion] = $"{line}{currentWritePostion} ";
+                                            currentWritePostion++;
+                                        }
+                                        currentWritePostion = 0;
+                                        break;
+                                    case 'A':
+                                        foreach (string line in output3) {
+                                            output3[currentWritePostion] = $"{line}{visibleToWriteHead.Average()} ";
+                                            currentWritePostion++;
+                                        }
+                                        currentWritePostion = 0;
+                                        break;
+                                    case 'H':
+                                        foreach (string line in output3) {
+                                            output3[currentWritePostion] = $"{line}{visibleToWriteHead.Max()} ";
+                                            currentWritePostion++;
+                                        }
+                                        currentWritePostion = 0;
+                                        break;
+                                    case 'L':
+                                        foreach (string line in output3) {
+                                            output3[currentWritePostion] = $"{line}{visibleToWriteHead.Min()} ";
+                                            currentWritePostion++;
+                                        }
+                                        currentWritePostion = 0;
+                                        break;
+
+                                }
+                            }
+                        };
+                        Console.WriteLine($"Results saved to {workingFolder}/Results.txt - Press any key to continue");
+                        Console.ReadLine();
+                        Console.Clear();
+                        await Main();
+                    }
+
                 }
                 Console.ReadLine();
                 Console.Clear();
